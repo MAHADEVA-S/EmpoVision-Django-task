@@ -1,0 +1,58 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0b1020"><title>EmpoVision — People Operations</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
+</head>
+<body>
+<div class="app-shell">
+<aside class="sidebar">
+<a class="brand" href="/"><span class="brand-mark">E</span><span>empo<span class="brand-light">vision</span></span></a>
+<div class="workspace-label">WORKSPACE</div>
+<nav class="nav-list" aria-label="Main navigation">
+<a class="nav-link active" href="#overview"><span class="nav-icon">▦</span>Overview</a>
+<a class="nav-link" href="#employees"><span class="nav-icon">♙</span>Employees</a>
+<a class="nav-link" href="#departments"><span class="nav-icon">▤</span>Departments</a>
+<a class="nav-link" href="#attendance"><span class="nav-icon">◷</span>Attendance</a>
+<a class="nav-link" href="/swagger/"><span class="nav-icon">⌘</span>API explorer</a>
+</nav>
+<div class="sidebar-bottom">
+<div class="status-card"><span class="status-dot"></span><div><strong>Workspace status</strong><small>API service available</small></div></div>
+<button class="profile-button" id="logout-button" type="button"><span class="avatar">EV</span><span><strong id="profile-name">Guest session</strong><small id="profile-role">Sign in to manage data</small></span><span class="logout-icon">↗</span></button>
+</div>
+</aside>
+<main class="main-content">
+<header class="topbar"><div><div class="eyebrow">PEOPLE OPERATIONS / OVERVIEW</div><h1>Good work starts with <span>great people.</span></h1></div>
+<div class="topbar-actions"><span class="date-pill" id="today-label">Today</span><button class="button button-quiet" id="refresh-button" type="button">↻ Refresh</button></div></header>
+<section class="welcome-strip"><div><span class="strip-kicker">EMPLOYEE INTELLIGENCE</span><h2>One clear view of your people.</h2><p>Track your workforce, departments and attendance from one focused workspace.</p></div><div class="strip-orbit" aria-hidden="true"><span></span><i></i><b></b></div></section>
+<section class="metric-grid" id="overview" aria-label="Workforce metrics">
+<article class="metric-card"><div class="metric-top"><span>Total employees</span><span class="metric-icon violet">♙</span></div><strong id="total-employees">—</strong><small>Registered workforce</small></article>
+<article class="metric-card"><div class="metric-top"><span>Departments</span><span class="metric-icon cyan">▤</span></div><strong id="total-departments">—</strong><small>Organizational units</small></article>
+<article class="metric-card"><div class="metric-top"><span>Average salary</span><span class="metric-icon amber">₹</span></div><strong id="average-salary">—</strong><small>Across employee records</small></article>
+<article class="metric-card"><div class="metric-top"><span>API status</span><span class="metric-icon green">⌁</span></div><strong class="status-value" id="api-status">Checking</strong><small id="api-status-note">Connecting to service</small></article>
+</section>
+<section class="content-grid">
+<article class="panel employee-panel" id="employees">
+<div class="panel-heading"><div><span class="eyebrow">YOUR WORKFORCE</span><h3>Employee directory</h3></div><button class="button button-primary" id="add-employee-button" type="button">＋ Add employee</button></div>
+<div class="table-tools"><label class="search-box"><span>⌕</span><input id="employee-search" type="search" placeholder="Search people, email or role…" aria-label="Search employees"></label><span class="table-count" id="employee-count">Sign in to view records</span></div>
+<div class="table-wrap"><table><thead><tr><th>EMPLOYEE</th><th>ROLE</th><th>DEPARTMENT</th><th>JOINED</th></tr></thead><tbody id="employee-rows"><tr><td colspan="4" class="empty-state">Sign in with your API account to load employee records.</td></tr></tbody></table></div>
+</article>
+<article class="panel department-panel" id="departments"><div class="panel-heading"><div><span class="eyebrow">STRUCTURE</span><h3>Departments</h3></div><span class="panel-symbol">▤</span></div><div id="department-list" class="department-list"><div class="empty-state">Department data will appear here.</div></div></article>
+</section>
+<section class="panel attendance-panel" id="attendance"><div class="panel-heading"><div><span class="eyebrow">TIME & PRESENCE</span><h3>Attendance snapshot</h3></div><a class="text-link" href="/swagger/">Explore API ↗</a></div>
+<div class="attendance-content"><div class="attendance-copy"><div class="attendance-number" id="attendance-total">—</div><strong>Attendance records</strong><p>Monthly attendance totals are available after authentication.</p></div><div class="attendance-bars" id="attendance-bars"><div class="empty-state">Authenticate to load attendance analytics.</div></div></div></section>
+<footer>EmpoVision <span>·</span> People operations, made clearer.</footer>
+</main></div>
+<dialog id="login-dialog" class="app-dialog"><form id="login-form" class="dialog-card"><button class="dialog-close" type="button" data-close="login-dialog" aria-label="Close">×</button><span class="eyebrow">SECURE WORKSPACE</span><h2>Welcome back.</h2><p>Sign in with your Django user credentials to access employee records.</p>
+<label>Username<input name="username" autocomplete="username" required></label><label>Password<input name="password" type="password" autocomplete="current-password" required></label><p class="form-error" id="login-error" role="alert"></p><button class="button button-primary button-full" type="submit">Sign in securely</button><small class="dialog-note">Your API token stays in this browser session only.</small></form></dialog>
+<dialog id="employee-dialog" class="app-dialog"><form id="employee-form" class="dialog-card"><button class="dialog-close" type="button" data-close="employee-dialog" aria-label="Close">×</button><span class="eyebrow">WORKFORCE RECORD</span><h2>Add an employee.</h2><p>Fields marked with * are required.</p>
+<div class="form-grid"><label>First name *<input name="first_name" required maxlength="100"></label><label>Last name *<input name="last_name" required maxlength="100"></label><label>Email *<input name="email" type="email" required></label><label>Phone *<input name="phone" required maxlength="20"></label>
+<label>Position *<select name="position" required><option value="DEV">Developer</option><option value="MGR">Manager</option><option value="HR">HR</option><option value="ADM">Administrator</option></select></label><label>Department<select name="department_id" id="employee-department"><option value="">Unassigned</option></select></label>
+<label>Salary (INR) *<input name="salary" type="number" min="0" step="0.01" required></label><label>Hire date *<input name="hire_date" type="date" required></label></div>
+<p class="form-error" id="employee-error" role="alert"></p><button class="button button-primary button-full" type="submit">Create employee record</button></form></dialog>
+<script src="{% static 'js/dashboard.js' %}" defer></script>
+</body></html>
