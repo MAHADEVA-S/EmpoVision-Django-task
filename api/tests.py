@@ -52,7 +52,16 @@ class EmployeeManagementAPITests(TestCase):
         self.assertEqual(response.status_code, 201)
         self.assertEqual(PerformanceRecord.objects.get().reviewer, self.user)
 
-    def test_department_statistics_include_annotated_metrics(self):
+    def test_department_employee_endpoint_requires_authentication(self):
+        response = self.client.get(f"/api/departments/{self.department.id}/employees/")
+        self.assertIn(response.status_code, (401, 403))
+
+    def test_department_stats_require_authentication(self):
+        response = self.client.get("/api/departments/stats/")
+        self.assertIn(response.status_code, (401, 403))
+
+    def test_authenticated_department_stats_include_metrics(self):
+        self.client.force_authenticate(user=self.user)
         response = self.client.get("/api/departments/stats/")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data[0]["employee_count"], 1)

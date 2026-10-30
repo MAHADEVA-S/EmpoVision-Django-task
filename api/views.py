@@ -15,12 +15,12 @@ class DepartmentViewSet(viewsets.ModelViewSet):
     search_fields = ["name", "location"]
     ordering_fields = ["name", "budget"]
 
-    @action(detail=True, methods=["get"])
+    @action(detail=True, methods=["get"], permission_classes=[permissions.IsAuthenticated])
     def employees(self, request, pk=None):
         records = Employee.objects.filter(department=self.get_object()).select_related("department")
         return Response(EmployeeSerializer(records, many=True).data)
 
-    @action(detail=False, methods=["get"])
+    @action(detail=False, methods=["get"], permission_classes=[permissions.IsAuthenticated])
     def stats(self, request):
         records = Department.objects.annotate(employee_count=Count("employee"),
             avg_salary=Avg("employee__salary"), total_salary=Sum("employee__salary"))
