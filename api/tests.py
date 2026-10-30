@@ -3,7 +3,7 @@ from decimal import Decimal
 from django.contrib.auth.models import User
 from django.test import TestCase
 from rest_framework.test import APIClient
-from .models import Attendance, Department, Employee, PerformanceRecord
+from .models import Attendance, Department, Employee, PerformanceRecord, generate_fake_data
 from .serializers import EmployeeSerializer
 
 class EmployeeManagementAPITests(TestCase):
@@ -51,6 +51,22 @@ class EmployeeManagementAPITests(TestCase):
         }, format="json")
         self.assertEqual(response.status_code, 201)
         self.assertEqual(PerformanceRecord.objects.get().reviewer, self.user)
+
+    def test_department_statistics_include_annotated_metrics(self):
+        response = self.client.get("/api/departments/stats/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data[0]["employee_count"], 1)
+        self.assertEqual(Decimal(response.data[0]["total_salary"]), Decimal("65000.00"))
+
+    def test_fake_data_has_unique_attendance_dates_and_valid_time_order(self):
+        generate_fake_data()
+        generated = Employee.objects.exclude(id=self.employee.id)
+        self.assertEqual(generated.count(), 20)
+        for employee in generated:
+            records = list(Attendance.objects.filter(employee=employee))
+            self.assertEqual(len(records), 20)
+            self.assertEqual(len({record.date for record in records}), 20)
+            self.assertTrue(all(record.check_out > record.check_in for record in records))
 
     def test_dashboard_route_renders(self):
         response = self.client.get("/")

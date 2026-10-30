@@ -3,9 +3,13 @@ from rest_framework import serializers
 from .models import Department, Employee, Attendance, PerformanceRecord
 
 class DepartmentSerializer(serializers.ModelSerializer):
+    employee_count = serializers.IntegerField(read_only=True)
+    avg_salary = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True, allow_null=True)
+    total_salary = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True, allow_null=True)
+
     class Meta:
         model = Department
-        fields = "__all__"
+        fields = ["id", "name", "location", "budget", "employee_count", "avg_salary", "total_salary"]
 
 class EmployeeSerializer(serializers.ModelSerializer):
     department = DepartmentSerializer(read_only=True)
