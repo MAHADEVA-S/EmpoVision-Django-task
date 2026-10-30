@@ -1,113 +1,102 @@
-from django.db import models
-from rest_framework import viewsets, permissions, status
+from django.contrib.auth.models import User
+from django.db.models import Avg, Count, Sum, Q
+from rest_framework import permissions, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.throttling import UserRateThrottle
-from django.contrib.auth.models import User
-from django.db.models import Count, Avg, Sum
 from .models import Department, Employee, Attendance, PerformanceRecord
-from .serializers import (
-    DepartmentSerializer,
-    EmployeeSerializer,
-    AttendanceSerializer,
-    PerformanceRecordSerializer,
-    UserSerializer
-)
+from .serializers import DepartmentSerializer, EmployeeSerializer, AttendanceSerializer, PerformanceRecordSerializer, UserSerializer
 
 class DepartmentViewSet(viewsets.ModelViewSet):
     queryset = Department.objects.all()
     serializer_class = DepartmentSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
     throttle_classes = [UserRateThrottle]
+    search_fields = ["name", "location"]
+    ordering_fields = ["name", "budget"]
 
-    @action(detail=True, methods=['get'])
+    @action(detail=True, methods=["get"])
     def employees(self, request, pk=None):
-        department = self.get_object()
-        employees = department.employee_set.all()
-        serializer = EmployeeSerializer(employees, many=True)
-        return Response(serializer.data)
+        records = Employee.objects.filter(department=self.get_object()).select_related("department")
+        return Response(EmployeeSerializer(records, many=True).data)
 
-    @action(detail=False, methods=['get'])
+    @action(detail=False, methods=["get"])
     def stats(self, request):
-        stats = Department.objects.annotate(
-            employee_count=Count('employee'),
-            avg_salary=Avg('employee__salary'),
-            total_salary=Sum('employee__salary')
-        )
-        serializer = self.get_serializer(stats, many=True)
-        return Response(serializer.data)
+        records = Department.objects.annotate(employee_count=Count("employee"),
+            avg_salary=Avg("employee__salary"), total_salary=Sum("employee__salary"))
+        return Response(self.get_serializer(records, many=True).data)
 
 class EmployeeViewSet(viewsets.ModelViewSet):
-    queryset = Employee.objects.all()
+    queryset = Employee.objects.select_related("department", "user").all()
     serializer_class = EmployeeSerializer
-    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+    permission_classes = [permissions.IsAuthenticated]
     throttle_classes = [UserRateThrottle]
-    filterset_fields = ['position', 'department']
+    filterset_fields = ["position", "department"]
+    search_fields = ["first_name", "last_name", "email", "phone"]
+    ordering_fields = ["first_name", "last_name", "hire_date", "salary"]
 
-    @action(detail=True, methods=['get'])
+    @action(detail=True, methods=["get"])
     def attendance(self, request, pk=None):
-        employee = self.get_object()
-        attendance = employee.attendance_set.all()
-        serializer = AttendanceSerializer(attendance, many=True)
-        return Response(serializer.data)
+        records = self.get_object().attendance_set.select_related("employee").order_by("-date")
+        return Response(AttendanceSerializer(records, many=True).data)
 
-    @action(detail=True, methods=['get'])
+    @action(detail=True, methods=["get"])
     def performance(self, request, pk=None):
-        employee = self.get_object()
-        performance = employee.performancerecord_set.all()
-        serializer = PerformanceRecordSerializer(performance, many=True)
-        return Response(serializer.data)
+        records = self.get_object().performancerecord_set.select_related("employee", "reviewer").order_by("-review_date")
+        return Response(PerformanceRecordSerializer(records, many=True).data)
 
-    @action(detail=False, methods=['get'])
+    @action(detail=False, methods=["get"])
     def stats(self, request):
-        stats = {
-            'total_employees': Employee.objects.count(),
-            'avg_salary': Employee.objects.aggregate(avg=Avg('salary'))['avg'],
-            'positions': Employee.objects.values('position').annotate(count=Count('id'))
+        data = {
+            "total_employees": Employee.objects.count(),
+            "avg_salary": Employee.objects.aggregate(avg=Avg("salary"))["avg"],
+            "positions": list(Employee.objects.values("position").annotate(count=Count("id")).order_by("position")),
+            "departments": Department.objects.count(),
         }
-        return Response(stats)
+        return Response(data)
 
 class AttendanceViewSet(viewsets.ModelViewSet):
-    queryset = Attendance.objects.all()
+    queryset = Attendance.objects.select_related("employee", "employee__department").all()
     serializer_class = AttendanceSerializer
     permission_classes = [permissions.IsAuthenticated]
     throttle_classes = [UserRateThrottle]
-    filterset_fields = ['employee', 'date', 'status']
+    filterset_fields = ["employee", "date", "status"]
+    ordering_fields = ["date", "check_in", "status"]
 
-    @action(detail=False, methods=['get'])
+    @action(detail=False, methods=["get"])
     def monthly_summary(self, request):
-        summary = Attendance.objects.extra(
-            {'month': "date_trunc('month', date)"}
-        ).values('month').annotate(
-            present=Count('id', filter=models.Q(status='PRESENT')),
-            absent=Count('id', filter=models.Q(status='ABSENT')),
-            late=Count('id', filter=models.Q(status='LATE'))
-        )
-        return Response(summary)
+        summary = Attendance.objects.values("date__year", "date__month").annotate(
+            present=Count("id", filter=Q(status="PRESENT")),
+            absent=Count("id", filter=Q(status="ABSENT")),
+            late=Count("id", filter=Q(status="LATE")),
+            on_leave=Count("id", filter=Q(status="ON_LEAVE")),
+        ).order_by("date__year", "date__month")
+        return Response(list(summary))
 
 class PerformanceRecordViewSet(viewsets.ModelViewSet):
-    queryset = PerformanceRecord.objects.all()
+    queryset = PerformanceRecord.objects.select_related("employee", "reviewer").all()
     serializer_class = PerformanceRecordSerializer
     permission_classes = [permissions.IsAuthenticated]
     throttle_classes = [UserRateThrottle]
-    filterset_fields = ['employee', 'rating']
+    filterset_fields = ["employee", "rating"]
+    ordering_fields = ["review_date", "rating"]
 
-    @action(detail=False, methods=['get'])
+    def perform_create(self, serializer):
+        serializer.save(reviewer=self.request.user)
+
+    @action(detail=False, methods=["get"])
     def average_ratings(self, request):
-        ratings = PerformanceRecord.objects.values(
-            'employee__department__name'
-        ).annotate(
-            avg_rating=Avg('rating')
-        )
-        return Response(ratings)
+        ratings = PerformanceRecord.objects.values("employee__department__name").annotate(
+            avg_rating=Avg("rating"), review_count=Count("id")
+        ).order_by("employee__department__name")
+        return Response(list(ratings))
 
-class UserViewSet(viewsets.ModelViewSet):
-    queryset = User.objects.all()
+class UserViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = User.objects.select_related("employee", "employee__department").all()
     serializer_class = UserSerializer
     permission_classes = [permissions.IsAdminUser]
     throttle_classes = [UserRateThrottle]
 
-    @action(detail=False, methods=['get'])
+    @action(detail=False, methods=["get"], permission_classes=[permissions.IsAuthenticated])
     def current_user(self, request):
-        serializer = self.get_serializer(request.user)
-        return Response(serializer.data)
+        return Response(self.get_serializer(request.user).data)
