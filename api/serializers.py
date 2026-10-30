@@ -1,66 +1,49 @@
+from django.contrib.auth.models import User
 from rest_framework import serializers
 from .models import Department, Employee, Attendance, PerformanceRecord
-from django.contrib.auth.models import User
 
 class DepartmentSerializer(serializers.ModelSerializer):
+    employee_count = serializers.IntegerField(read_only=True)
+    avg_salary = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True, allow_null=True)
+    total_salary = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True, allow_null=True)
+
     class Meta:
         model = Department
-        fields = '__all__'
+        fields = ["id", "name", "location", "budget", "employee_count", "avg_salary", "total_salary"]
 
 class EmployeeSerializer(serializers.ModelSerializer):
     department = DepartmentSerializer(read_only=True)
     department_id = serializers.PrimaryKeyRelatedField(
-        queryset=Department.objects.all(),
-        source='department',
-        write_only=True
+        queryset=Department.objects.all(), source="department", write_only=True,
+        required=False, allow_null=True,
     )
-
     class Meta:
         model = Employee
-        fields = [
-            'id', 'first_name', 'last_name', 'email', 'phone',
-            'position', 'salary', 'hire_date', 'department', 'department_id'
-        ]
-        extra_kwargs = {
-            'email': {'validators': []},  # Disable unique validator for updates
-        }
+        fields = ["id", "first_name", "last_name", "email", "phone", "position",
+                  "salary", "hire_date", "department", "department_id"]
 
 class AttendanceSerializer(serializers.ModelSerializer):
     employee = EmployeeSerializer(read_only=True)
     employee_id = serializers.PrimaryKeyRelatedField(
-        queryset=Employee.objects.all(),
-        source='employee',
-        write_only=True
+        queryset=Employee.objects.all(), source="employee", write_only=True,
     )
-
     class Meta:
         model = Attendance
-        fields = '__all__'
-        extra_kwargs = {
-            'check_out': {'required': False}
-        }
+        fields = "__all__"
+        extra_kwargs = {"check_out": {"required": False}}
 
 class PerformanceRecordSerializer(serializers.ModelSerializer):
     employee = EmployeeSerializer(read_only=True)
     employee_id = serializers.PrimaryKeyRelatedField(
-        queryset=Employee.objects.all(),
-        source='employee',
-        write_only=True
+        queryset=Employee.objects.all(), source="employee", write_only=True,
     )
-    reviewer = serializers.SlugRelatedField(
-        queryset=User.objects.all(),
-        slug_field='username',
-        required=False,
-        allow_null=True
-    )
-
+    reviewer = serializers.StringRelatedField(read_only=True)
     class Meta:
         model = PerformanceRecord
-        fields = '__all__'
+        fields = "__all__"
 
 class UserSerializer(serializers.ModelSerializer):
     employee = EmployeeSerializer(read_only=True)
-
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'employee']
+        fields = ["id", "username", "email", "employee"]
